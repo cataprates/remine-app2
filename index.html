@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RE-MINE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #727272; font-family: 'Inter', sans-serif; margin: 0; }
+        .header-title { font-family: 'Audiowide', sans-serif; color: #DDA0DD; letter-spacing: 2px; }
+        .chat-container { background-color: #FFFFFF; border-radius: 30px 30px 0 0; min-height: 100vh; margin-top: 90px; padding-bottom: 120px; }
+        .bubble-ai { background-color: #222222; color: #FFFFFF; border-radius: 20px 20px 20px 5px; }
+        .bubble-user { background-color: #2A2A2A; color: #FFFFFF; border-radius: 20px 20px 5px 20px; }
+        .input-bar { background-color: #222222; border-radius: 50px; }
+        /* Markdown formatting inside bubbles */
+        .bubble-ai h3 { font-size: 1.2rem; font-weight: bold; margin-bottom: 8px; color: #DDA0DD; }
+        .bubble-ai p, .bubble-ai ul, .bubble-ai ol { margin-bottom: 10px; }
+        .bubble-ai ul { list-style-type: disc; margin-left: 20px; }
+        .bubble-ai strong { color: #DDA0DD; }
+    </style>
+</head>
+<body>
+
+    <div class="fixed top-0 left-0 w-full bg-[#727272] z-50 text-center py-6 shadow-md">
+        <h1 class="header-title text-4xl m-0 uppercase leading-none">RE-MINE</h1>
+    </div>
+
+    <div class="chat-container max-w-2xl mx-auto px-4 pt-6 flex flex-col gap-4" id="chat-box">
+        </div>
+
+    <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 z-50 px-4 py-4 pb-8">
+        <div class="max-w-2xl mx-auto input-bar flex items-center px-4 py-2 gap-3">
+            
+            <label for="camera-input" class="cursor-pointer text-[#DDA0DD] text-2xl font-bold pb-1 hover:opacity-80 transition">+</label>
+            <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+            
+            <input type="text" id="user-input" placeholder="Ask me anything..." class="flex-1 bg-transparent text-white outline-none placeholder-gray-400 font-inter">
+            
+            <button id="send-btn" class="text-[#DDA0DD] font-bold text-xl hover:opacity-80 transition">↑</button>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const cameraInput = document.getElementById('camera-input');
+
+        // 🗄️ LOAD CHAT HISTORY ON STARTUP
+        let chatHistory = JSON.parse(localStorage.getItem('remine_history')) || [
+            { role: 'ai', content: 'Upload a photo of an electronic device, and I will tell you its hidden value, upcycle ideas, and where to sell it.' }
+        ];
+
+        function saveHistory() {
+            localStorage.setItem('remine_history', JSON.stringify(chatHistory));
+        }
+
+        function renderMessages() {
+            chatBox.innerHTML = '';
+            chatHistory.forEach(msg => {
+                const bubble = document.createElement('div');
+                bubble.className = `flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`;
+                
+                let contentHTML = msg.content;
+                // Parse markdown for AI responses
+                if (msg.role === 'ai') { contentHTML = marked.parse(msg.content); }
+
+                let imageHTML = msg.image ? `<img src="${msg.image}" class="w-48 rounded-lg mb-2">` : '';
+
+                bubble.innerHTML = `
+                    <div class="max-w-[85%] px-5 py-4 ${msg.role === 'user' ? 'bubble-user' : 'bubble-ai'} shadow-sm">
+                        ${imageHTML}
+                        <div class="text-sm md:text-base leading-relaxed">${contentHTML}</div>
+                    </div>
+                `;
+                chatBox.appendChild(bubble);
+            });
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        renderMessages();
+
+        // 🚀 SEND MESSAGE TO PYTHON BACKEND
+        async function sendMessage(text, file = null) {
+            if (!text && !file) return;
+
+            // 1. Show User Message
+            let base64Image = null;
+            if (file) {
+                // Convert image to base64 just for showing in the chat history
+                base64Image = await new Promise(resolve => {
+                    let reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            chatHistory.push({ role: 'user', content: text, image: base64Image });
+            saveHistory();
+            renderMessages();
+            userInput.value = '';
+
+            // 2. Show Loading Bubble
+            const loadingId = Date.now();
+            chatHistory.push({ role: 'ai', content: 'Analyzing with Pro Model...', id: loadingId });
+            renderMessages();
+
+            // 3. Prepare data for Python
+            const formData = new FormData();
+            if (text) formData.append('text', text);
+            if (file) formData.append('file', file);
+
+            try {
+                // Call our FastAPI Backend
+                const response = await fetch('http://localhost:8000/chat', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                // 4. Update Chat with real answer
+                chatHistory.pop(); // Remove loading message
+                chatHistory.push({ role: 'ai', content: data.response });
+                saveHistory();
+                renderMessages();
+
+            } catch (error) {
+                chatHistory.pop();
+                chatHistory.push({ role: 'ai', content: 'Error connecting to the RE-MINE server.' });
+                saveHistory();
+                renderMessages();
+            }
+        }
+
+        // Event Listeners
+        sendBtn.addEventListener('click', () => {
+            const file = cameraInput.files[0];
+            sendMessage(userInput.value, file);
+            cameraInput.value = ''; // Reset file input
+        });
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendBtn.click();
+        });
+
+        // Instant send when a photo is taken!
+        cameraInput.addEventListener('change', () => {
+            if (cameraInput.files.length > 0) {
+                sendMessage(userInput.value, cameraInput.files[0]);
+                cameraInput.value = ''; 
+            }
+        });
+    </script>
+</body>
+</html>
