@@ -15,7 +15,7 @@ app.add_middleware(
 )
 
 # 🚨 REPLACE WITH YOUR NEW API KEY 🚨
-genai.configure(api_key="AIzaSyD3D4TiFwQWf472NUUnFStoybmlVwlFYyc")
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 instrucoes_sistema = """
 You are RE-MINE, an expert AI in urban mining, electronics recycling, and upcycling. 
@@ -79,4 +79,5 @@ async def chat_endpoint(text: str = Form(""), file: UploadFile = File(None)):
         res = chat_session.send_message(gemini_input)
         return {"response": res.text}
     except Exception as e:
+
         return {"response": f"Error: {str(e)}"}
