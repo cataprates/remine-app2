@@ -6,12 +6,11 @@ from PIL import Image
 import io
 import os
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Optional
 
 load_dotenv()
 app = FastAPI()
 
-# 1. FIXED CORS: This allows the phone to talk to the server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,16 +19,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. Key configuration
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 instrucoes_sistema = """
 You are RE-MINE, an urban mining expert. 
-1. Provide a clear object name.
-2. Estimated Total Value: Return $[Amount] (e.g. $0.50).
-3. Precious Metals Table: Material | Location | Weight | Value.
-4. Tear-Down Checklist.
-5. Local Disposal based on coordinates.
+Analyze photos and provide:
+1. ### 📱 Object: [Name]
+2. 💰 **Estimated Value:** $[Amount] (e.g., $0.50)
+3. **💎 Materials Table:** (Material | Location | Weight | Value)
+4. **🛠️ Tear-Down Checklist**
+5. **🌍 Local Disposal:** Use location data if provided.
 """
 
 model = genai.GenerativeModel('models/gemini-1.5-flash', system_instruction=instrucoes_sistema)
@@ -44,29 +43,26 @@ async def serve_frontend():
 async def chat_endpoint(
     text: str = Form(""), 
     files: List[UploadFile] = File(None), 
-    lat: str = Form(None), 
-    lon: str = Form(None)
+    lat: Optional[str] = Form(None), 
+    lon: Optional[str] = Form(None)
 ):
     gemini_input = []
-    
     if files:
         for file in files:
             image_data = await file.read()
             img = Image.open(io.BytesIO(image_data))
-            img.thumbnail((800, 800)) # Resizing for mobile data speeds
+            img.thumbnail((800, 800))
             gemini_input.append(img)
     
-    location_data = f" (User Location: {lat}, {lon})" if lat and lon else ""
-    user_prompt = f"{text}{location_data}"
-    
-    if user_prompt:
-        gemini_input.append(user_prompt)
+    # Combined prompt with optional location
+    prompt = f"{text}. User Location: {lat}, {lon}" if lat else text
+    if prompt:
+        gemini_input.append(prompt)
     elif not gemini_input:
-        gemini_input.append("Analyze these hardware components.")
+        gemini_input.append("Analyze these items.")
 
     try:
         res = chat_session.send_message(gemini_input)
         return {"response": res.text}
     except Exception as e:
-        # This will show up in your phone screen if the API Key is wrong
-        return {"response": f"Gemini Error: {str(e)}"}
+        return {"response": f"Server Error: {str(e)}"}
