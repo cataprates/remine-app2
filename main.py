@@ -11,7 +11,6 @@ from typing import List
 load_dotenv()
 app = FastAPI()
 
-# Wide-open CORS to ensure your phone can talk to the server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,17 +18,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Secure Key Fetch
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 instrucoes_sistema = """
 You are RE-MINE, an urban mining expert. 
-1. Identify objects in photos.
-2. Provide a 'Precious Metals Table'.
-3. Give an 'Estimated Total Value' (e.g., $0.50).
-4. Provide a tear-down guide.
+Analyze photos and provide:
+1. ### 📱 Object: [Name]
+2. 💰 **Estimated Value:** $[Amount] (Return exactly one number like 0.50)
+3. **💎 Materials Table:** (Material | Location | Weight | Value)
+4. **🛠️ Tear-Down Checklist**
 """
 
-model = genai.GenerativeModel('models/gemini-1.5-flash', system_instruction=instrucoes_sistema)
+# FIXED MODEL NAME
+model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=instrucoes_sistema)
 chat_session = model.start_chat(history=[])
 
 @app.get("/")
@@ -45,7 +47,7 @@ async def chat_endpoint(text: str = Form(""), files: List[UploadFile] = File(Non
         for file in files:
             image_data = await file.read()
             img = Image.open(io.BytesIO(image_data))
-            img.thumbnail((800, 800)) # Resizing for faster mobile uploads
+            img.thumbnail((800, 800)) 
             gemini_input.append(img)
     
     if text:
@@ -57,4 +59,5 @@ async def chat_endpoint(text: str = Form(""), files: List[UploadFile] = File(Non
         res = chat_session.send_message(gemini_input)
         return {"response": res.text}
     except Exception as e:
+        # Returns the specific Google error if it persists
         return {"response": f"Server Error: {str(e)}"}
