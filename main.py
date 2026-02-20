@@ -8,28 +8,29 @@ import os
 from dotenv import load_dotenv
 from typing import List
 
+# 1. Load Environment Variables
 load_dotenv()
+
 app = FastAPI()
 
+# 2. CORS - This allows your phone to talk to Render
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# 3. Configure Gemini
+api_key = os.getenv("GEMINI_API_KEY")
+genai.configure(api_key=api_key)
 
-# Upgraded Instructions: AI now handles Location and precise Value formatting
 instrucoes_sistema = """
-You are RE-MINE, a global expert in urban mining and e-waste.
-If the user provides coordinates (Latitude/Longitude), identify their city/region and suggest the nearest specialized e-waste recycling centers.
-Analyze all photos and provide:
-1. ### 📱 Object: [Name]
-2. 💰 **Estimated Value:** [Value in USD] (Always provide a single number here like 0.50 for the tracker to read)
-3. **💎 Materials Table:** (Material | Location | Est. Weight | Est. Value)
-4. **🛠️ Tear-Down Checklist**
-5. **🌍 Local Disposal:** Suggest local buyers based on provided location.
+You are RE-MINE, a professional urban mining AI. 
+Analyze all photos and provide a structured breakdown.
+If the user provides GPS coordinates, suggest local disposal sites.
+Format your value as: 💰 **Estimated Value:** $[Amount]
 """
 
 model = genai.GenerativeModel('models/gemini-1.5-flash', system_instruction=instrucoes_sistema)
@@ -40,26 +41,37 @@ async def serve_frontend():
     with open("index.html", "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
+# Simple health check to see if server is alive
+@app.get("/health")
+async def health():
+    return {"status": "online"}
+
 @app.post("/chat")
-async def chat_endpoint(text: str = Form(""), files: List[UploadFile] = File(None), lat: str = Form(None), lon: str = Form(None)):
+async def chat_endpoint(
+    text: str = Form(""), 
+    files: List[UploadFile] = File(None), 
+    lat: str = Form(None), 
+    lon: str = Form(None)
+):
     gemini_input = []
     
-    # Add Location context if available
-    location_context = f" User Location: Lat {lat}, Lon {lon}." if lat and lon else ""
-    
+    # Process Images
     if files:
         for file in files:
             image_data = await file.read()
             img = Image.open(io.BytesIO(image_data))
-            img.thumbnail((1024, 1024)) 
+            img.thumbnail((800, 800)) # Smaller size = Faster upload
             gemini_input.append(img)
     
-    full_prompt = f"{text}{location_context}"
+    # Process Text & Location
+    location_info = f" (Location: {lat}, {lon})" if lat and lon else ""
+    full_prompt = f"{text}{location_info}"
+    
     if full_prompt:
         gemini_input.append(full_prompt)
-    elif files:
-        gemini_input.append("Analyze these items.")
-        
+    elif not gemini_input:
+        gemini_input.append("Analyze these items for recycling.")
+
     try:
         res = chat_session.send_message(gemini_input)
         return {"response": res.text}
