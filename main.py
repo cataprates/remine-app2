@@ -4,6 +4,8 @@ from fastapi.responses import HTMLResponse
 import google.generativeai as genai
 from PIL import Image
 import io
+import os  # <--- THIS IS THE MISSING LINE!
+from dotenv import load_dotenv
 
 app = FastAPI()
 
@@ -81,3 +83,4 @@ async def chat_endpoint(text: str = Form(""), file: UploadFile = File(None)):
     except Exception as e:
 
         return {"response": f"Error: {str(e)}"}
+
