@@ -6,15 +6,15 @@ from PIL import Image
 import io
 import os
 from dotenv import load_dotenv
-from typing import List, Optional
+from typing import List
 
 load_dotenv()
 app = FastAPI()
 
+# Wide-open CORS to ensure your phone can talk to the server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -23,12 +23,10 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 instrucoes_sistema = """
 You are RE-MINE, an urban mining expert. 
-Analyze photos and provide:
-1. ### 📱 Object: [Name]
-2. 💰 **Estimated Value:** $[Amount] (e.g., $0.50)
-3. **💎 Materials Table:** (Material | Location | Weight | Value)
-4. **🛠️ Tear-Down Checklist**
-5. **🌍 Local Disposal:** Use location data if provided.
+1. Identify objects in photos.
+2. Provide a 'Precious Metals Table'.
+3. Give an 'Estimated Total Value' (e.g., $0.50).
+4. Provide a tear-down guide.
 """
 
 model = genai.GenerativeModel('models/gemini-1.5-flash', system_instruction=instrucoes_sistema)
@@ -40,24 +38,18 @@ async def serve_frontend():
         return HTMLResponse(content=f.read())
 
 @app.post("/chat")
-async def chat_endpoint(
-    text: str = Form(""), 
-    files: List[UploadFile] = File(None), 
-    lat: Optional[str] = Form(None), 
-    lon: Optional[str] = Form(None)
-):
+async def chat_endpoint(text: str = Form(""), files: List[UploadFile] = File(None)):
     gemini_input = []
+    
     if files:
         for file in files:
             image_data = await file.read()
             img = Image.open(io.BytesIO(image_data))
-            img.thumbnail((800, 800))
+            img.thumbnail((800, 800)) # Resizing for faster mobile uploads
             gemini_input.append(img)
     
-    # Combined prompt with optional location
-    prompt = f"{text}. User Location: {lat}, {lon}" if lat else text
-    if prompt:
-        gemini_input.append(prompt)
+    if text:
+        gemini_input.append(text)
     elif not gemini_input:
         gemini_input.append("Analyze these items.")
 
