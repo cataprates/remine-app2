@@ -8,12 +8,9 @@ import os
 from dotenv import load_dotenv
 from typing import List
 
-# Load local .env file
 load_dotenv()
-
 app = FastAPI()
 
-# Enable CORS for all origins to prevent connection errors
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,23 +18,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Securely fetch API Key
-api_key = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=api_key)
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
+# Upgraded Instructions: AI now handles Location and precise Value formatting
 instrucoes_sistema = """
-You are RE-MINE, an expert AI in urban mining. 
-Analyze ALL uploaded photos together and provide a detailed breakdown.
-FORMAT:
-1. ### 📱 Object Detected: [Name]
-2. 💰 **Estimated Total Value:** [Value]
-3. **💎 Precious Metals Table:** (Material | Location | Est. Weight | Est. Value)
-4. **♻️ Upcycle Ideas:** (Beginner, Intermediate, Advanced)
-5. **🛠️ Tear-Down Guide**
-6. **🌍 Where to Sell:** (Ask for City/Country for local buyers)
+You are RE-MINE, a global expert in urban mining and e-waste.
+If the user provides coordinates (Latitude/Longitude), identify their city/region and suggest the nearest specialized e-waste recycling centers.
+Analyze all photos and provide:
+1. ### 📱 Object: [Name]
+2. 💰 **Estimated Value:** [Value in USD] (Always provide a single number here like 0.50 for the tracker to read)
+3. **💎 Materials Table:** (Material | Location | Est. Weight | Est. Value)
+4. **🛠️ Tear-Down Checklist**
+5. **🌍 Local Disposal:** Suggest local buyers based on provided location.
 """
 
-model = genai.GenerativeModel('models/gemini-2.5-flash', system_instruction=instrucoes_sistema)
+model = genai.GenerativeModel('models/gemini-1.5-flash', system_instruction=instrucoes_sistema)
 chat_session = model.start_chat(history=[])
 
 @app.get("/")
@@ -46,21 +41,24 @@ async def serve_frontend():
         return HTMLResponse(content=f.read())
 
 @app.post("/chat")
-async def chat_endpoint(text: str = Form(""), files: List[UploadFile] = File(None)):
+async def chat_endpoint(text: str = Form(""), files: List[UploadFile] = File(None), lat: str = Form(None), lon: str = Form(None)):
     gemini_input = []
+    
+    # Add Location context if available
+    location_context = f" User Location: Lat {lat}, Lon {lon}." if lat and lon else ""
     
     if files:
         for file in files:
-            # Open and resize image slightly to prevent timeouts on mobile
             image_data = await file.read()
             img = Image.open(io.BytesIO(image_data))
             img.thumbnail((1024, 1024)) 
             gemini_input.append(img)
     
-    if text:
-        gemini_input.append(text)
+    full_prompt = f"{text}{location_context}"
+    if full_prompt:
+        gemini_input.append(full_prompt)
     elif files:
-        gemini_input.append("Analyze these items for urban mining.")
+        gemini_input.append("Analyze these items.")
         
     try:
         res = chat_session.send_message(gemini_input)
