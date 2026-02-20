@@ -34,9 +34,9 @@ Para cada foto de hardware, forneça:
 IMPORTANTE: Se o usuário não disser onde mora na mensagem, pergunte a localização dele para dar as opções locais exatas!
 """
 
-# Stable model to prevent 404 crashes
+# To this:
 model = genai.GenerativeModel(
-    model_name='gemini-2.0-flash', 
+    model_name='gemini-2.5-flash', 
     system_instruction=instrucoes_sistema
 )
 chat_session = model.start_chat(history=[])
@@ -67,3 +67,4 @@ async def chat_endpoint(text: str = Form(""), files: List[UploadFile] = File(Non
         return {"response": res.text}
     except Exception as e:
         return {"response": f"Server Error: {str(e)}"}
+
