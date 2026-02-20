@@ -19,13 +19,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 1. CONFIGURE FOR STABLE VERSION
-# We use 'v1' instead of the automatic 'v1beta' that was causing your 404
+# Use the stable API configuration
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 instrucoes_sistema = """
 You are RE-MINE, an urban mining expert. 
-Analyze hardware and provide:
+Provide:
 1. ### 📱 Object: [Name]
 2. 💰 **Estimated Value:** $[Amount]
 3. **💎 Materials Table:** (Material | Location | Weight | Value)
@@ -33,10 +32,9 @@ Analyze hardware and provide:
 5. **🌍 Local Disposal:** Suggest centers if location data is provided.
 """
 
-# 2. UPDATED MODEL PATH
-# 'models/gemini-1.5-flash' is the correct stable path
+# Force the stable model path
 model = genai.GenerativeModel(
-    model_name='models/gemini-1.5-flash', 
+    model_name='gemini-1.5-flash', 
     system_instruction=instrucoes_sistema
 )
 chat_session = model.start_chat(history=[])
@@ -70,7 +68,6 @@ async def chat_endpoint(
         gemini_input.append("Analyze these items.")
 
     try:
-        # 3. GENERATE WITH STABLE SETTINGS
         res = chat_session.send_message(gemini_input)
         return {"response": res.text}
     except Exception as e:
