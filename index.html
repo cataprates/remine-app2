@@ -2,37 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RE-MINE</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron&family=Inter:wght@300;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root { --primary: #bb86fc; --bg: #121212; --surface: #1e1e1e; --text: #e0e0e0; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        header { padding: 15px; text-align: center; background: var(--surface); box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-        h1 { font-family: 'Orbitron', sans-serif; color: var(--primary); margin: 0; font-size: 1.5rem; }
-        #chat-window { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-        .message { max-width: 85%; padding: 10px 14px; border-radius: 12px; line-height: 1.4; font-size: 0.95rem; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { padding: 12px; text-align: center; background: var(--surface); border-bottom: 1px solid #333; flex-shrink: 0; }
+        h1 { font-family: 'Orbitron', sans-serif; color: var(--primary); margin: 0; font-size: 1.2rem; letter-spacing: 2px; }
+        
+        #chat-window { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; padding-bottom: 100px; }
+        .message { max-width: 90%; padding: 12px; border-radius: 12px; line-height: 1.5; font-size: 0.9rem; word-wrap: break-word; }
         .user-message { align-self: flex-end; background: var(--primary); color: #000; font-weight: 600; }
-        .ai-message { align-self: flex-start; background: var(--surface); border: 1px solid #333; }
-        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.85rem; }
-        th, td { border: 1px solid #444; padding: 6px; text-align: left; }
-        th { background: #333; color: var(--primary); }
-        .input-area { padding: 15px; background: var(--surface); display: flex; align-items: center; gap: 10px; }
-        input[type="text"] { flex: 1; background: #2b2b2b; border: 1px solid #444; color: #fff; padding: 10px 15px; border-radius: 20px; }
-        button { background: none; border: none; cursor: pointer; color: var(--primary); font-size: 1.4rem; }
-        .preview-container { display: flex; gap: 8px; padding: 0 15px 10px; overflow-x: auto; }
-        .preview-img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid var(--primary); }
+        .ai-message { align-self: flex-start; background: var(--surface); border: 1px solid #333; width: 100%; box-sizing: border-box; }
+
+        /* --- THE MOBILE TABLE FIX --- */
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; display: block; overflow-x: auto; }
+        
+        /* On screens smaller than 600px, turn table into cards */
+        @media screen and (max-width: 600px) {
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            tr { border: 1px solid #444; margin-bottom: 10px; border-radius: 8px; background: #252525; padding: 5px; }
+            td { border: none; position: relative; padding-left: 50% !important; text-align: right !important; padding: 8px !important; border-bottom: 1px solid #333; }
+            td:last-child { border-bottom: 0; }
+            td:before { position: absolute; left: 10px; width: 45%; padding-right: 10px; white-space: nowrap; text-align: left; font-weight: bold; color: var(--primary); content: attr(data-label); }
+        }
+
+        /* Input area fixes */
+        .input-container { position: fixed; bottom: 0; width: 100%; background: var(--surface); padding: 10px; box-sizing: border-box; border-top: 1px solid #333; }
+        .preview-container { display: flex; gap: 8px; margin-bottom: 10px; overflow-x: auto; }
+        .preview-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--primary); }
+        .input-area { display: flex; items-center: center; gap: 8px; }
+        input[type="text"] { flex: 1; background: #2b2b2b; border: 1px solid #444; color: #fff; padding: 10px 15px; border-radius: 20px; font-size: 16px; }
+        button { background: none; border: none; cursor: pointer; color: var(--primary); font-size: 1.5rem; padding: 5px; }
     </style>
 </head>
 <body>
     <header><h1>RE-MINE</h1></header>
     <div id="chat-window"></div>
-    <div id="preview-container" class="preview-container"></div>
-    <div class="input-area">
-        <input type="file" id="fileInput" accept="image/*" multiple hidden>
-        <button onclick="document.getElementById('fileInput').click()">📎</button>
-        <input type="text" id="userInput" placeholder="Ask RE-MINE...">
-        <button onclick="sendMessage()">➔</button>
+    <div class="input-container">
+        <div id="preview-container" class="preview-container"></div>
+        <div class="input-area">
+            <input type="file" id="fileInput" accept="image/*" multiple hidden>
+            <button onclick="document.getElementById('fileInput').click()">📎</button>
+            <input type="text" id="userInput" placeholder="Type or upload...">
+            <button onclick="sendMessage()">➔</button>
+        </div>
     </div>
 
     <script>
@@ -40,7 +56,6 @@
         const fileInput = document.getElementById('fileInput');
         const previewContainer = document.getElementById('preview-container');
 
-        // Show thumbnails of photos before sending
         fileInput.addEventListener('change', () => {
             previewContainer.innerHTML = '';
             for (const file of fileInput.files) {
@@ -56,34 +71,36 @@
             const files = fileInput.files;
             if (!text && files.length === 0) return;
 
-            // Display your message and images in the chat instantly
             if (text) appendMessage(text, 'user-message');
             for (const file of files) {
-                const imgMsg = document.createElement('img');
-                imgMsg.src = URL.createObjectURL(file);
-                imgMsg.style.maxWidth = '150px';
-                imgMsg.style.borderRadius = '10px';
-                imgMsg.style.alignSelf = 'flex-end';
-                chatWindow.appendChild(imgMsg);
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.style.width = '100px';
+                img.style.borderRadius = '8px';
+                img.style.alignSelf = 'flex-end';
+                img.style.marginBottom = '10px';
+                chatWindow.appendChild(img);
             }
 
             const formData = new FormData();
             formData.append('text', text);
             for (let i = 0; i < files.length; i++) { formData.append('files', files[i]); }
 
-            const loadingDiv = appendMessage("Analyzing...", 'ai-message');
+            const loadingDiv = appendMessage("Analyzing e-waste...", 'ai-message');
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
             try {
-                // Relative path '/' works locally and on Render
                 const res = await fetch('/chat', { method: 'POST', body: formData });
                 const data = await res.json();
                 loadingDiv.innerHTML = formatAI(data.response);
             } catch (e) {
-                loadingDiv.innerText = "Error: Check connection.";
+                loadingDiv.innerText = "Connection lost. Try again.";
             }
 
             document.getElementById('userInput').value = '';
             fileInput.value = '';
             previewContainer.innerHTML = '';
+            chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
         function appendMessage(txt, cls) {
@@ -96,9 +113,16 @@
         }
 
         function formatAI(text) {
+            // Converts Markdown bold and tables into phone-friendly HTML
             let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+            
             if (html.includes('|')) {
-                html = `<table>${html.replace(/\|(.+)\|/g, (m) => `<tr>${m.split('|').filter(c => c.trim()).map(c => `<td>${c}</td>`).join('')}</tr>`)}</table>`;
+                const labels = ["Material", "Location", "Est. Weight", "Est. Value"];
+                html = `<table>${html.replace(/\|(.+)\|/g, (m) => {
+                    const cells = m.split('|').filter(c => c.trim() && !c.includes('---'));
+                    if (cells.length < 2) return "";
+                    return `<tr>${cells.map((c, i) => `<td data-label="${labels[i] || 'Data'}">${c.trim()}</td>`).join('')}</tr>`;
+                })}</table>`;
             }
             return html;
         }
