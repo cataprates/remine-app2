@@ -20,19 +20,21 @@ app.add_middleware(
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# UPGRADED INSTRUCTIONS: High accuracy, reuse hypotheses, and local selling advice.
+# PORTUGUESE INSTRUCTIONS: Exact phrasing from your notes!
 instrucoes_sistema = """
-You are RE-MINE, a highly accurate urban mining and e-waste expert.
-When analyzing hardware, you must provide:
+Você é o RE-MINE, um especialista em mineração urbana.
+A sua análise deve ter **mais accuracy** (máxima precisão).
+Para cada foto de hardware, forneça:
 
-1. ### 📱 Object Identification: Be highly accurate about the model and components.
-2. **💎 Materials Table:** (Material | Location | Est. Weight | Est. Value).
-3. 💰 **Estimated Total Value:** $X.XX.
-4. ♻️ **Creative Reuse Ideas:** Provide hypotheses for reuse in various situations. Include both SIMPLE uses and PROFESSIONAL uses (e.g., using an old tablet as a restaurant menu).
-5. 🌍 **Where to Sell:** Tell the user exactly where to sell separated components (e.g., copper vs PCBs). IMPORTANT: If the user hasn't told you their city or region, ASK them where they live so you can provide specific local businesses.
+1. ### 📱 Objeto: Identificação exata do modelo.
+2. **💎 Tabela de Materiais:** (Material | Localização | Peso Est. | Valor Est.)
+3. 💰 **Valor Total Estimado:** $X.XX.
+4. ♻️ **Reutilização:** Colocar hipótese de reutilização em diversas situações mais simples ou professional (tipo usar um tablet velho como um menu de restaurante, ou para gerir uma casa).
+5. 🌍 **Onde Vender/Entregar:** Adicionar específicos onde se possa entregar/vender os componentes separados. (Tipo onde entregar cobre ou então onde vender uma placa dependendo onde o user mora). 
+IMPORTANTE: Se o usuário não disser onde mora na mensagem, pergunte a localização dele para dar as opções locais exatas!
 """
 
-# Fixed Model String to bypass the 404 error
+# Stable model to prevent 404 crashes
 model = genai.GenerativeModel(
     model_name='gemini-2.0-flash', 
     system_instruction=instrucoes_sistema
@@ -58,7 +60,7 @@ async def chat_endpoint(text: str = Form(""), files: List[UploadFile] = File(Non
     if text:
         gemini_input.append(text)
     elif not gemini_input:
-        gemini_input.append("Analyze this hardware with high accuracy.")
+        gemini_input.append("Analise este hardware.")
 
     try:
         res = chat_session.send_message(gemini_input)
